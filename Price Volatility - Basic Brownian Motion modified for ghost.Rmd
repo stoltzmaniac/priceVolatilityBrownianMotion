@@ -1,0 +1,96 @@
+######The Situation
+You are a consultant who has been by a business that sells one commodity product. On December 31st the price is $100 per unit. The business owner wants to know what to expect by the end of January.
+
+The owner gave you the message: 
+
+* Prices are based off the the sales the previous day 
+* Roughly 95% of the time, the price will be +/- $10 compared to the day before
+
+With minutes to make the call, how do you decide on what to expect for the end of January?
+
+That's pretty easy: 
+**Expected Value** = $100
+
+Wouldn't that make sense? You could give yourself a pat on the back and walk away.
+
+However, you want to give the owner options and show risk in terms of percentages.
+
+The nerd in you screams out, "I want to price changes for the month!" 
+
+***You make the rather large assumption*** that the daily changes are normally distributed.
+
+So you write some code based off of your assumptions and create a basic simulation based off of Brownian Motion.
+
+![plot](https://www.stoltzmaniac.com/content/images/2016/12/sales-volatility-basic-brownian-motion/unnamed-chunk-5-1.png)
+
+```{r cache=TRUE}
+library(ggplot2)
+set.seed(5)
+
+initialPrice = 100
+dailyPlusMinus = 10
+dailyDeviation = dailyPlusMinus/2 # assumes 2*sigma roughly approximates 95% range on normal dist.
+
+#Note: This isn't the proper way to calculate a standard deviation - but we really have no information on how the +/- was calculated so it's the best you can do.
+
+n = 31 #number of days in January
+N = 500 #number of simulations
+
+prices = matrix(ncol=N,nrow=n)
+for(i in 1:N){
+  prices[,i] = initialPrice + 
+    cumsum(rnorm(n = n,mean = 0,sd = dailyDeviation))
+}
+
+steps = 1:nrow(prices)
+yLimits = c(initialPrice-dailyDeviation*n/1.5,initialPrice+dailyDeviation*n/1.5)
+plot(steps,prices[,1],type='l',ylim=yLimits,xlab='Days',ylab='Daily Price ($)',main='Simulation of Daily Prices for the Month')
+for(i in 2:ncol(prices)){
+  lines(prices[,i])
+}
+```
+
+After plotting the data, you quickly notice that you still don't quite have the answer you're looking for, but you do have a great visualization.
+
+You quickly plot a histogram of the simulated end of month prices.
+
+![plot](https://www.stoltzmaniac.com/content/images/2016/12/sales-volatility-basic-brownian-motion/unnamed-chunk-7-1.png)
+```{r}
+endOfMonthPrices = prices[n,]
+hist(endOfMonthPrices,main='Histogram End of Month Price',xlab='Price ($)',30)
+```
+
+You also visualize your data by looking at a CDF plot.
+![plot](https://www.stoltzmaniac.com/content/images/2016/12/sales-volatility-basic-brownian-motion/unnamed-chunk-8-1.png)
+
+```{r}
+plot(ecdf(endOfMonthPrices),main='CDF of End of Month Price',xlab='Price ($)')
+```
+
+Eyeballing the charts, it appears as if the majority of your data suggests the price will wind up between $50 and $150. You finally decide to pull the hard numbers.
+
+```
+##    1%  2.5%    5%   10%   25%   50%   75%   90%   95% 97.5%   99% 
+##  2034  2167  2263  2420  2750  3081  3426  3710  3901  4079  4260
+```
+
+```{r}
+decis = c(0.01,0.05,0.10,0.25,0.33,0.5,0.66,0.75,0.90,0.95,0.99)
+deciPrices = round(quantile(endOfMonthPrices,decis),0)
+print(deciPrices)
+```
+You check to see if the results make sense:
+YES - The 50% decile value is right around $100
+YES - The deciles which mirror each other on each side of 50% are roughly equal (i.e. 1% = $41 and 99% = $162 are each roughly $60 away from $99)
+
+You understand what you have here, but it may not be as intuitive for a business owner. Someone could look at it and say, "there's a 1% chance it will be $41 and a 99% chance it will be $162" which is incorrect.
+
+With your level of experience, you understand it's wise to say:
+
+* The most likely price is going to be near $100
+* The end of month price almost certainly going to fall between $160 and $40
+* Confidence intervals are available upon request
+
+The messaging and communication will 100% be based upon the client. In this case, it's assuming someone doesn't have any sort of stats background and just wants a high-level view.
+
+Obviously, the majority of this analysis was completely unnecessary. However, that wouldn't have been as much fun and you wouldn't have learned as much! It's nice to have something like this in your back pocket when you begin to analyze an increasing the number of variables, variance, and outcomes.
